@@ -382,6 +382,14 @@ globalThis.FlutterHostView = FlutterHostView;
     FlutterHostView: FlutterHostView,
     wx: wx,
     Object: Object,
+    // flutter-3.38 fork: dart2js 的异步调度器按 scheduleImmediate > MutationObserver >
+    // setImmediate > setTimeout 的顺序选择实现。桥接对象上的 MutationObserver 是
+    // no-op 空实现（仅用于满足引擎的 documentElement style 观察），若不提供
+    // scheduleImmediate，dart2js 会选中 MutationObserver 路径，导致所有 Dart
+    // Future/async 续体永不执行、启动静默挂起。用 setTimeout 提供真实实现。
+    scheduleImmediate: function (callback) {
+      setTimeout(callback, 0);
+    },
     Promise: Promise,
     Array: Array,
     Uint8Array: Uint8Array,
