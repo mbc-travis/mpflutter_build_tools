@@ -1,5 +1,13 @@
 # ChangeLog
 
+## 2.8.1 (fork: flutter-3.38)
+
+feat:
+- 适配 Flutter 3.38.x，已在 Flutter 3.38.10 下完成微信小程序构建验证。
+- Flutter >= 3.32 时追加 `--no-wasm-dry-run`，跳过 JS 编译附带的 wasm dry run，加快构建。
+- Flutter >= 3.35 时 debug 构建改用 `-O1`，替代已废弃的 `--dart2js-optimization`。
+- 新增 `verifiedMaxVersion`（当前 3.38.99），高于已验证版本时仅提示不拦截，便于后续跟随官方升级。
+
 ## 2.7.9
 
 fix:

@@ -22,6 +22,10 @@ part 'wegame_builder.dart';
 /// 当前 MPFlutter 支持的最高版本 Flutter SDK
 final compactVersionStep1 = '3.16.7';
 final compactVersionStep2 = '3.22.0';
+
+/// 当前 fork 已适配并验证过的最高 Flutter SDK 版本。
+/// 跟随 Flutter 官方升级时：更新此值，并在验证通过后同步修改。
+final verifiedMaxVersion = '3.38.99';
 var currentFlutterVersion = '';
 
 /// 声明已获取 MPFlutter 使用授权
@@ -213,6 +217,12 @@ Future<void> checkFlutterVersion({bool allowStep1 = false}) async {
       if (flutterVersion != null &&
           compareVersions(flutterVersion, compactVersionStep2) < 0) {
         throw "你当前的 Flutter SDK 版本是 $flutterVersion，MPFlutter 支持的版本是 >= 3.22.0";
+      }
+      if (flutterVersion != null &&
+          compareVersions(flutterVersion, verifiedMaxVersion) > 0) {
+        print(
+            "[提示] 你当前的 Flutter SDK 版本是 $flutterVersion，高于本 fork 已验证的最高版本 ${verifiedMaxVersion.split('.').take(2).join('.')}，"
+            "构建仍会继续，如遇到异常请优先检查 Flutter 官方变更日志。");
       }
     }
   }

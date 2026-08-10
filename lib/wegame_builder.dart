@@ -81,9 +81,14 @@ void main(List<String> args) async {
               'canvaskit',
               '--dart-define=mpflutter.library.core=true',
               '--dart-define=mpflutter.library.target.wegame=true',
+              // Flutter 3.32+ 在 JS 编译时会额外执行 wasm dry run，小游戏产物仅使用 JS，跳过以加快构建
+              (compareVersions(currentFlutterVersion, "3.32.0") >= 0 ? '--no-wasm-dry-run' : ''),
             ],
             ...arguments.contains('--debug')
-                ? ['--source-maps', '--dart2js-optimization', 'O1']
+                // Flutter 3.35+ 废弃 --dart2js-optimization，改用 -O
+                ? (compareVersions(currentFlutterVersion, "3.35.0") >= 0
+                    ? ['--source-maps', '-O1']
+                    : ['--source-maps', '--dart2js-optimization', 'O1'])
                 : [],
           ]..removeWhere((element) => element.isEmpty),
           runInShell: true);
