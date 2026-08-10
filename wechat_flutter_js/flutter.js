@@ -41,6 +41,24 @@
       return Object.prototype.hasOwnProperty.call(obj, prop);
     };
   }
+  // flutter-3.38 fork: Flutter 3.32+ 的 dart2js 运行时通过 self || globalThis 访问全局对象
+  //（v.G.Error / v.G.document / v.G.window 等）。部分微信宿主中 self 存在但缺少 Error 等属性，
+  // 导致启动报错 "Cannot read property 'toString' of undefined"，这里将 self 规范为完整全局对象。
+  try {
+    if (typeof self !== "undefined" && self !== globalThis) {
+      try {
+        if (!self.Error) self.Error = Error;
+        if (!self.Promise) self.Promise = Promise;
+        if (!self.Symbol) self.Symbol = Symbol;
+        if (!self.parseFloat) self.parseFloat = parseFloat;
+      } catch (e) {}
+      globalThis.self = globalThis;
+    } else if (typeof self === "undefined") {
+      globalThis.self = globalThis;
+    }
+  } catch (e) {
+    console.warn("[mpflutter] normalize self failed", e);
+  }
 })();
 
 const {
@@ -283,6 +301,9 @@ globalThis.FlutterHostView = FlutterHostView;
   _flutter.document =
     new(require("./flutter_bom/document").FlutterMiniProgramMockDocument)();
   _flutter.window.document = _flutter.document;
+  // flutter-3.38 fork: dart2js 运行时通过全局对象访问 window/document，这里同步暴露
+  globalThis.window = _flutter.window;
+  globalThis.document = _flutter.document;
   _flutter.self = {
     FlutterHostView: FlutterHostView,
     wx: wx,
