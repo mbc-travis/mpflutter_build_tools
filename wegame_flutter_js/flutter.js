@@ -424,6 +424,40 @@ globalThis.FlutterHostView = FlutterHostView;
     },
     XMLHttpRequest: require("./flutter_bom/xml-http-request").XMLHttpRequest,
   };
+  // flutter-3.38 fork: 构建工具会在 main.dart.js 头部注入 var self = getApp()._flutter.self，
+  // Flutter 3.32+ 的 dart2js 运行时把这个 self（即 _flutter.self）当作全局对象 v.G，
+  // 通过属性访问 v.G.Error/Symbol/parseFloat 等标准全局量；桥接对象未提供时必须补齐，
+  // 否则 Dart 错误上报器因 v.G.Error 为 undefined 而崩溃，掩盖真实异常导致启动卡 loading。
+  (function () {
+    var g = _flutter.self;
+    var standards = {
+      Error: typeof Error !== "undefined" ? Error : undefined,
+      TypeError: typeof TypeError !== "undefined" ? TypeError : undefined,
+      RangeError: typeof RangeError !== "undefined" ? RangeError : undefined,
+      SyntaxError: typeof SyntaxError !== "undefined" ? SyntaxError : undefined,
+      ReferenceError: typeof ReferenceError !== "undefined" ? ReferenceError : undefined,
+      Symbol: typeof Symbol !== "undefined" ? Symbol : undefined,
+      Math: typeof Math !== "undefined" ? Math : undefined,
+      Date: typeof Date !== "undefined" ? Date : undefined,
+      RegExp: typeof RegExp !== "undefined" ? RegExp : undefined,
+      Map: typeof Map !== "undefined" ? Map : undefined,
+      Set: typeof Set !== "undefined" ? Set : undefined,
+      WeakMap: typeof WeakMap !== "undefined" ? WeakMap : undefined,
+      parseFloat: typeof parseFloat !== "undefined" ? parseFloat : undefined,
+      parseInt: typeof parseInt !== "undefined" ? parseInt : undefined,
+      isNaN: typeof isNaN !== "undefined" ? isNaN : undefined,
+      isFinite: typeof isFinite !== "undefined" ? isFinite : undefined,
+      decodeURIComponent: typeof decodeURIComponent !== "undefined" ? decodeURIComponent : undefined,
+      console: typeof console !== "undefined" ? console : undefined,
+    };
+    Object.keys(standards).forEach(function (key) {
+      if (g[key] == null && standards[key] != null) {
+        try {
+          g[key] = standards[key];
+        } catch (e) {}
+      }
+    });
+  })();
   FlutterHostView.shared.onkeyboardheightchange = (e) => {
     _flutter.self.keyboardHeightChanged(e.detail.height);
   };
