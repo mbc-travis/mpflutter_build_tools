@@ -365,6 +365,19 @@ globalThis.FlutterHostView = FlutterHostView;
     globalThis.mpSetOnSelf("document", _flutter.document);
     globalThis.mpSetOnSelf("_flutter", _flutter);
   }
+  // flutter-3.38 fork: Flutter 3.32+ 引擎在初始化时会 new MutationObserver 监听
+  // documentElement 的 style 属性变化；小程序没有 DOM，这里提供 class 形式的空实现
+  //（必须是 class/构造函数，否则报 "MutationObserver is not a constructor"）。
+  class MpMutationObserverStub {
+    constructor(callback) {
+      this._callback = callback;
+    }
+    observe(target, options) {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
   _flutter.self = {
     FlutterHostView: FlutterHostView,
     wx: wx,
@@ -449,6 +462,8 @@ globalThis.FlutterHostView = FlutterHostView;
       isFinite: typeof isFinite !== "undefined" ? isFinite : undefined,
       decodeURIComponent: typeof decodeURIComponent !== "undefined" ? decodeURIComponent : undefined,
       console: typeof console !== "undefined" ? console : undefined,
+      // Flutter 3.32+ 引擎初始化会 new v.G.MutationObserver，宿主缺失时用空实现兼容
+      MutationObserver: typeof MutationObserver !== "undefined" ? MutationObserver : MpMutationObserverStub,
     };
     Object.keys(standards).forEach(function (key) {
       if (g[key] == null && standards[key] != null) {
@@ -469,11 +484,8 @@ globalThis.FlutterHostView = FlutterHostView;
   };
   globalThis.HTMLTextAreaElement =
     require("./flutter_bom/input").FlutterMiniProgramMockInputElement;
-  globalThis.MutationObserver = function () {
-    return {
-      observe: function () {},
-    };
-  };
+  globalThis.MutationObserver =
+    typeof MutationObserver !== "undefined" ? MutationObserver : MpMutationObserverStub;
   globalThis.KeyboardEvent = class KeyboardEvent {
     preventDefault() {}
   };
