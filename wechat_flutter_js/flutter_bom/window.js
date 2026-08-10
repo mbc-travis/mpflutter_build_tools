@@ -129,6 +129,14 @@ export class FlutterMiniProgramMockWindow {
     if (!options) {
       options = {};
     }
+    // flutter-3.38 fork: 启动诊断日志，问题排查完成后可移除
+    console.log("[MPF-BOOT] window.fetch:", url);
+    const __p = this.__fetchImpl(url, options);
+    __p.then(() => console.log("[MPF-BOOT] window.fetch resolved:", url),
+      (e) => console.error("[MPF-BOOT] window.fetch rejected:", url, e));
+    return __p;
+  };
+  __fetchImpl = (url, options) => {
     return new Promise(async (resolve, reject) => {
       if (useMiniTex && url.startsWith("https://fonts.gstatic.com/s/")) {
         const responseData = {
@@ -405,6 +413,7 @@ export class FlutterMiniProgramMockWindow {
               globalThis.window = _flutter.window;
             }
             globalThis.window.flutterCanvasKit = CanvasKit;
+            console.log("[MPF-BOOT] window.CanvasKitInit: resolving CanvasKit to engine, rAF type =", typeof _flutter.window.requestAnimationFrame);
             resolve(CanvasKit);
           }).catch(e => {
             console.error("[MPF-BOOT] window.CanvasKitInit: CanvasKitInit(canvas) failed", e);

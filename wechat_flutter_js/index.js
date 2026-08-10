@@ -454,6 +454,8 @@ function resizeCanvas(canvas) {
   canvas.width = canvas.width * wxSystemInfo.pixelRatio;
   canvas.height = canvas.height * wxSystemInfo.pixelRatio;
   getApp()._flutter.window.requestAnimationFrame = canvas.requestAnimationFrame;
+  // flutter-3.38 fork: 启动诊断日志，问题排查完成后可移除
+  console.log("[MPF-BOOT] resizeCanvas: canvas.requestAnimationFrame type =", typeof canvas.requestAnimationFrame);
 }
 
 function setupFlutterApp(canvas) {
@@ -466,9 +468,10 @@ function setupFlutterApp(canvas) {
           .initializeEngine()
           .then(function (appRunner) {
             console.log("[MPF-BOOT] initializeEngine done, runApp begin");
-            appRunner.runApp();
-            console.log("[MPF-BOOT] runApp done");
-            resolve();
+            return appRunner.runApp().then(function () {
+              console.log("[MPF-BOOT] runApp done");
+              resolve();
+            });
           })
           .catch(function (e) {
             console.error("[MPF-BOOT] initializeEngine failed", e);
