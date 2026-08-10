@@ -47,6 +47,7 @@ MPFlutter 2.0 本身不需要裁剪/修改 Flutter SDK，它由三部分组成�
 | >= 3.32 | 追加 `--no-wasm-dry-run`；dart2js 产物开始使用 `Array.prototype.at`、`FinalizationRegistry` 等新 API，需在 `wechat_flutter_js/flutter.js` 头部提供 polyfill（否则卡 loading）；dart2js 运行时改用 `self \|\| globalThis` 访问全局对象，而构建工具会在 main.dart.js 头部注入 `var self = getApp()._flutter.self`，导致 v.G 命中 `_flutter.self` 桥接对象——必须在该对象构造后补齐 `Error/Symbol/parseFloat` 等缺失的标准全局量（否则报 Cannot read property 'toString' of undefined，掩盖真实异常）；引擎初始化会 `new v.G.MutationObserver` 监听 documentElement style 变化，需在 `_flutter.self` 上提供 class 形式的 MutationObserver 空实现（否则报 MutationObserver is not a constructor）；注意：一旦桥接对象上出现 MutationObserver，dart2js 的异步调度器（优先级 scheduleImmediate > MutationObserver > setImmediate > setTimeout）会选中 MutationObserver 路径，而空实现永不触发回调，导致所有 Dart Future/async 续体挂起、启动静默卡死——必须同时在 `_flutter.self` 上提供 `scheduleImmediate`（用 setTimeout 实现）让调度器走最高优先级路径 |
 | >= 3.35 | debug 构建用 `-O1` 替代 `--dart2js-optimization O1` |
 | >= 3.38 | 引擎的字体回退下载改为请求 `.woff2`（旧版是 `.otf/.ttf`），而 MPFlutter 内置的旧版 CanvasKit（FreeType）无法解析 woff2——`flutter_bom/window.js` 中的 gstatic 重定向需覆盖 `.woff2` 后缀，并在应用内打包一个 TTF（如 Roboto-Regular.ttf）作为重定向目标 |
+| 任意（应用引入 file_picker 等 DOM 类插件时显现） | `flutter_bom/document.js` 的 `querySelector` 原实现返回 `undefined`，插件初始化时 `querySelector("body").toString()` 直接崩溃（runApp 阶段报 Null check / Cannot read property 'toString' of undefined）——body/head 选择器需返回对应 mock 元素，其余选择器按 DOM 语义返回 `null` 让 Dart 侧走判空分支 |
 
 ## 授权提示
 

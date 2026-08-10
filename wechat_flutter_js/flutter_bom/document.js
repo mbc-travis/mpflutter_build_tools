@@ -76,7 +76,18 @@ export class FlutterMiniProgramMockDocument {
 
   head = new(require("./element").FlutterMiniProgramMockElement)();
 
-  querySelector() {}
+  querySelector(selector) {
+    // flutter-3.38 fork: 返回 undefined 会让插件侧 `querySelector("body").toString()`
+    // 直接崩溃（如 file_picker 的 web 端初始化）。body/head 返回对应 mock
+    // 元素，其余选择器按 DOM 语义返回 null（Dart 侧会走判空分支）。
+    if (selector === "body") {
+      return this.body;
+    }
+    if (selector === "head") {
+      return this.head;
+    }
+    return null;
+  }
 
   createMockElement() {
     // 实现 createMockElement 函数的逻辑
