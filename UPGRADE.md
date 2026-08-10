@@ -44,7 +44,7 @@ MPFlutter 2.0 本身不需要裁剪/修改 Flutter SDK，它由三部分组成�
 | --- | --- |
 | < 3.29 | 传 `--web-renderer canvaskit` |
 | >= 3.29 | 不传 `--web-renderer`（已移除） |
-| >= 3.32 | 追加 `--no-wasm-dry-run` |
+| >= 3.32 | 追加 `--no-wasm-dry-run`；dart2js 产物开始使用 `Array.prototype.at`、`FinalizationRegistry` 等新 API，需在 `wechat_flutter_js/flutter.js` 头部提供 polyfill（否则卡 loading） |
 | >= 3.35 | debug 构建用 `-O1` 替代 `--dart2js-optimization O1` |
 
 ## 授权提示

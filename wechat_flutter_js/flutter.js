@@ -5,6 +5,44 @@
 // Copyright 2023 MPFlutter Author. All rights reserved.
 // For MiniProgram polyfill code is governed by a Apache-2.0 license.
 
+// flutter-3.38 fork: Flutter 3.32+ 的 dart2js 产物（引擎运行时）使用了较新的 JS API，
+// 微信宿主运行时可能不支持，这里在 main.dart.js 执行前做特性检测式 polyfill。
+(function () {
+  // dart2js async 降级代码使用 Array.prototype.at 返回异步结果，缺失会导致启动卡 loading
+  if (typeof Array.prototype.at !== "function") {
+    Array.prototype.at = function (n) {
+      n = Math.trunc(n) || 0;
+      if (n < 0) n += this.length;
+      if (n < 0 || n >= this.length) return undefined;
+      return this[n];
+    };
+  }
+  if (typeof String.prototype.at !== "function") {
+    String.prototype.at = function (n) {
+      n = Math.trunc(n) || 0;
+      if (n < 0) n += this.length;
+      if (n < 0 || n >= this.length) return undefined;
+      return this[n];
+    };
+  }
+  // 引擎用 FinalizationRegistry 做 CanvasKit 对象回收，缺失时提供空实现避免抛错
+  if (typeof FinalizationRegistry === "undefined") {
+    globalThis.FinalizationRegistry = class FinalizationRegistry {
+      constructor(callback) {
+        this._callback = callback;
+      }
+      register(target, heldValue, unregisterToken) {}
+      unregister(unregisterToken) {}
+    };
+  }
+  // ES2022 Object.hasOwn
+  if (typeof Object.hasOwn !== "function") {
+    Object.hasOwn = function (obj, prop) {
+      return Object.prototype.hasOwnProperty.call(obj, prop);
+    };
+  }
+})();
+
 const {
   wxSystemInfo
 } = require("./system_info");
