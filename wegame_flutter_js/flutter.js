@@ -84,13 +84,38 @@ function mpSetGlobal(key, value) {
       mpSetGlobal(key, mpGlobals[key]);
     }
   });
+  // flutter-3.38 fork: 微信沙箱中 self 存在但不是完整全局对象，且只读不可重定义
+  //（赋值与 defineProperty 都无法替换它）。Flutter 3.32+ 的 dart2js 运行时以
+  // (self || globalThis) 作为全局对象（v.G），通过属性访问 v.G.Error/Promise 等，
+  // 因此不替换 self，而是把标准全局量直接补到 self 对象上。
+  function mpSetOnSelf(key, value) {
+    try {
+      if (self[key] != null) return;
+    } catch (e) {}
+    try {
+      self[key] = value;
+    } catch (e) {
+      try {
+        Object.defineProperty(self, key, {
+          value: value,
+          writable: true,
+          configurable: true,
+        });
+      } catch (e2) {}
+    }
+  }
   try {
-    if (typeof self === "undefined" || self !== globalThis) {
+    if (typeof self === "undefined") {
       mpSetGlobal("self", globalThis);
+    } else if (self !== globalThis) {
+      Object.keys(mpGlobals).forEach(function (key) {
+        if (mpGlobals[key] != null) mpSetOnSelf(key, mpGlobals[key]);
+      });
     }
   } catch (e) {
-    console.warn("[mpflutter] normalize self failed", e);
+    console.warn("[mpflutter] patch self failed", e);
   }
+  globalThis.mpSetOnSelf = mpSetOnSelf;
 })();
 
 const { wxSystemInfo } = require("./system_info");
@@ -333,6 +358,13 @@ globalThis.FlutterHostView = FlutterHostView;
   //（微信开发者工具中 window 是只读 getter，mpSetGlobal 会自动降级为 defineProperty 遮蔽）
   mpSetGlobal("window", _flutter.window);
   mpSetGlobal("document", _flutter.document);
+  // flutter-3.38 fork: dart2js 运行时还会访问 v.G.window/document/_flutter，
+  // 微信沙箱中 v.G 是独立的 self 对象，同步补上这些属性
+  if (typeof self !== "undefined" && self !== globalThis) {
+    globalThis.mpSetOnSelf("window", _flutter.window);
+    globalThis.mpSetOnSelf("document", _flutter.document);
+    globalThis.mpSetOnSelf("_flutter", _flutter);
+  }
   _flutter.self = {
     FlutterHostView: FlutterHostView,
     wx: wx,
