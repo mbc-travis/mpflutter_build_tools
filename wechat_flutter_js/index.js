@@ -453,8 +453,28 @@ function setupFlutterHostView(self) {
 function resizeCanvas(canvas) {
   canvas.width = canvas.width * wxSystemInfo.pixelRatio;
   canvas.height = canvas.height * wxSystemInfo.pixelRatio;
-  getApp()._flutter.window.requestAnimationFrame = canvas.requestAnimationFrame;
-  // flutter-3.38 fork: 启动诊断日志，问题排查完成后可移除
+  // flutter-3.38 fork: 必须 bind 到 canvas，否则引擎以 window.requestAnimationFrame(cb)
+  // 调用时丢失 this，微信 canvas 的 rAF 静默失效导致首帧永不渲染。
+  // 外加诊断日志（前 3 帧），问题排查完成后可简化为直接赋值。
+  const rawRAF = canvas.requestAnimationFrame.bind(canvas);
+  let mpfRafCount = 0;
+  getApp()._flutter.window.requestAnimationFrame = function (callback) {
+    mpfRafCount++;
+    if (mpfRafCount <= 3) {
+      console.log("[MPF-BOOT] window.requestAnimationFrame scheduled, frame #" + mpfRafCount);
+    }
+    return rawRAF(function (ts) {
+      if (mpfRafCount <= 3) {
+        console.log("[MPF-BOOT] rAF callback fired, ts =", ts);
+      }
+      try {
+        callback(ts);
+      } catch (e) {
+        console.error("[MPF-BOOT] rAF callback threw", e);
+        throw e;
+      }
+    });
+  };
   console.log("[MPF-BOOT] resizeCanvas: canvas.requestAnimationFrame type =", typeof canvas.requestAnimationFrame);
 }
 

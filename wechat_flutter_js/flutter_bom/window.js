@@ -158,9 +158,13 @@ export class FlutterMiniProgramMockWindow {
       }
       if (
         url.startsWith("https://fonts.gstatic.com/s/") &&
-        (url.endsWith(".otf") || url.endsWith(".ttf"))
+        (url.endsWith(".otf") || url.endsWith(".ttf") || url.endsWith(".woff2"))
       ) {
-        url = "/assets/fonts/NotoSansSC-Regular.ttf";
+        // flutter-3.38 fork: Flutter 3.38 引擎改为请求 .woff2，而 MPFlutter 内置的
+        // 旧版 CanvasKit（FreeType）无法解析 woff2，统一重定向到应用内打包的
+        // Roboto-Regular.ttf（需在 pubspec.yaml 声明该 asset；不存在时 isAssetExist
+        // 返回 404，与重定向前等效）。
+        url = "/assets/fonts/Roboto-Regular.ttf";
       }
       if (isAsset(url)) {
         if (!(await isAssetExist(url))) {
@@ -403,6 +407,38 @@ export class FlutterMiniProgramMockWindow {
           const ckLoaded = CanvasKitInit(canvas);
           ckLoaded.then(async (CanvasKit) => {
             console.log("[MPF-BOOT] window.CanvasKitInit: CanvasKit ready, MakeCanvasSurface...");
+            // flutter-3.38 fork: 渲染诊断探针，问题排查完成后可移除
+            const origMakeOnScreen = CanvasKit.MakeOnScreenGLSurface;
+            if (typeof origMakeOnScreen === "function") {
+              CanvasKit.MakeOnScreenGLSurface = function () {
+                let surf;
+                try {
+                  surf = origMakeOnScreen.apply(CanvasKit, arguments);
+                } catch (e) {
+                  console.error("[MPF-BOOT] MakeOnScreenGLSurface threw", e);
+                  throw e;
+                }
+                console.log("[MPF-BOOT] engine MakeOnScreenGLSurface =>", !!surf, "size =", arguments[1], "x", arguments[2]);
+                if (surf && typeof surf.flush === "function") {
+                  let flushCount = 0;
+                  const origFlush = surf.flush.bind(surf);
+                  surf.flush = function () {
+                    try {
+                      const r = origFlush.apply(surf, arguments);
+                      if (flushCount < 3) console.log("[MPF-BOOT] engine surface.flush #" + flushCount + " ok");
+                      flushCount++;
+                      return r;
+                    } catch (e) {
+                      console.error("[MPF-BOOT] engine surface.flush threw", e);
+                      throw e;
+                    }
+                  };
+                }
+                return surf;
+              };
+            } else {
+              console.error("[MPF-BOOT] CanvasKit.MakeOnScreenGLSurface MISSING, CanvasKit keys =", Object.keys(CanvasKit).slice(0, 30));
+            }
             if (useMiniTex) {
               await this.MiniTexInit(CanvasKit);
             }
