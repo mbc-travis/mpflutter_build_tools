@@ -334,6 +334,7 @@ export class FlutterMiniProgramMockWindow {
     assetBase: "/",
   };
   CanvasKitInit() {
+    console.log("[MPF-BOOT] window.CanvasKitInit: begin");
     return new Promise((resolve) => {
       wx.createSelectorQuery()
         .select("#my_canvas") // 在 WXML 中填入的 id
@@ -342,9 +343,11 @@ export class FlutterMiniProgramMockWindow {
           size: true,
         })
         .exec(async (res) => {
+          console.log("[MPF-BOOT] window.CanvasKitInit: canvas found =", !!(res && res[0] && res[0].node));
           const { CanvasKitInit, GLInfo } = await new Promise((resolve) => {
             require("../../../canvaskit/pages/canvaskit", resolve);
           });
+          console.log("[MPF-BOOT] window.CanvasKitInit: canvaskit.js required, CanvasKitInit type =", typeof CanvasKitInit);
           const _flutter = getApp()._flutter;
           GLInfo.GLVersion = getApp()._FlutterGLVersion;
           // Canvas 对象
@@ -388,12 +391,15 @@ export class FlutterMiniProgramMockWindow {
 
           _flutter.activeCanvas = canvas;
           // 渲染上下文
+          console.log("[MPF-BOOT] window.CanvasKitInit: calling CanvasKitInit(canvas), GLVersion =", GLInfo.GLVersion);
           const ckLoaded = CanvasKitInit(canvas);
           ckLoaded.then(async (CanvasKit) => {
+            console.log("[MPF-BOOT] window.CanvasKitInit: CanvasKit ready, MakeCanvasSurface...");
             if (useMiniTex) {
               await this.MiniTexInit(CanvasKit);
             }
             const surface = CanvasKit.MakeCanvasSurface(canvas);
+            console.log("[MPF-BOOT] window.CanvasKitInit: surface =", !!surface);
             _flutter.window.flutterCanvasKit = CanvasKit;
             if (!globalThis.window) {
               globalThis.window = _flutter.window;
@@ -401,6 +407,7 @@ export class FlutterMiniProgramMockWindow {
             globalThis.window.flutterCanvasKit = CanvasKit;
             resolve(CanvasKit);
           }).catch(e => {
+            console.error("[MPF-BOOT] window.CanvasKitInit: CanvasKitInit(canvas) failed", e);
             console.error(e);
           });
         });

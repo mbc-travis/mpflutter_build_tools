@@ -69,12 +69,14 @@ export const main = {
       return;
     }
     require("./mpjs");
+    console.log("[MPF-BOOT] index.js onLoad: loading subpackages...");
     await Promise.all([
       loadAssetPages(),
       loadCanvasKitPages(),
       loadPlugins(),
       loadRobotoFont(),
     ]);
+    console.log("[MPF-BOOT] index.js onLoad: subpackages loaded");
 
     setupFlutterHostView(this);
     setupAppLifeCycleListener();
@@ -82,6 +84,7 @@ export const main = {
     wx.mpcbExitState = this.exitState;
 
     await this.doTestCanvas();
+    console.log("[MPF-BOOT] index.js onLoad: doTestCanvas done, selecting #my_canvas");
     wx.createSelectorQuery()
       .select("#my_canvas") // 在 WXML 中填入的 id
       .fields({
@@ -90,9 +93,11 @@ export const main = {
       })
       .exec(async (res) => {
         // Canvas 对象
+        console.log("[MPF-BOOT] index.js onLoad: canvas found =", !!(res && res[0] && res[0].node));
         let canvas = res[0].node;
         resizeCanvas(canvas);
         await setupFlutterApp(canvas);
+        console.log("[MPF-BOOT] index.js onLoad: setupFlutterApp resolved");
       });
 
     wx.onKeyboardHeightChange(this.onWXKeyboardheightchange.bind(this));
@@ -453,15 +458,20 @@ function resizeCanvas(canvas) {
 
 function setupFlutterApp(canvas) {
   return new Promise((resolve) => {
+    console.log("[MPF-BOOT] setupFlutterApp: loadEntrypoint begin");
     getApp()._flutter.loader.loadEntrypoint({
       onEntrypointLoaded: function (engineInitializer) {
+        console.log("[MPF-BOOT] onEntrypointLoaded, initializeEngine begin");
         engineInitializer
           .initializeEngine()
           .then(function (appRunner) {
+            console.log("[MPF-BOOT] initializeEngine done, runApp begin");
             appRunner.runApp();
+            console.log("[MPF-BOOT] runApp done");
             resolve();
           })
           .catch(function (e) {
+            console.error("[MPF-BOOT] initializeEngine failed", e);
             console.error(e);
           });
       },

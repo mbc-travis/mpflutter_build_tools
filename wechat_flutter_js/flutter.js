@@ -91,6 +91,18 @@ function mpSetGlobal(key, value) {
   } catch (e) {
     console.warn("[mpflutter] normalize self failed", e);
   }
+  // flutter-3.38 fork: 启动诊断日志，定位卡 loading 的位置，问题排查完成后可移除
+  console.log("[MPF-BOOT] flutter.js init done", JSON.stringify({
+    hasGlobalThis: typeof globalThis !== "undefined",
+    selfIsGlobal: typeof self !== "undefined" && self === globalThis,
+    gError: typeof globalThis.Error,
+    gPromise: typeof globalThis.Promise,
+    gWindow: typeof globalThis.window,
+    gDocument: typeof globalThis.document,
+    arrayAt: typeof Array.prototype.at,
+    finalizationRegistry: typeof FinalizationRegistry,
+    weakRef: typeof WeakRef,
+  }));
 })();
 
 const {
@@ -229,6 +241,7 @@ globalThis.FlutterHostView = FlutterHostView;
      * @param {Function} engineInitializer @see https://github.com/flutter/engine/blob/main/lib/web_ui/lib/src/engine/js_interop/js_loader.dart#L42
      */
     didCreateEngineInitializer(engineInitializer) {
+      console.log("[MPF-BOOT] didCreateEngineInitializer called");
       if (typeof this._didCreateEngineInitializerResolve === "function") {
         this._didCreateEngineInitializerResolve(engineInitializer);
         // Remove the resolver after the first time, so Flutter Web can hot restart.
@@ -261,9 +274,12 @@ globalThis.FlutterHostView = FlutterHostView;
         this._scriptLoaded = true;
         if (useCallback) {
           this._onEntrypointLoaded = onEntrypointLoaded;
+          console.log("[MPF-BOOT] require main.dart.js begin");
           try {
             require("./main.dart");
+            console.log("[MPF-BOOT] require main.dart.js end, waiting didCreateEngineInitializer...");
           } catch (e) {
+            console.error("[MPF-BOOT] require main.dart.js failed", e);
             console.error(e);
           }
         } else {
