@@ -7,6 +7,23 @@
 
 // flutter-3.38 fork: Flutter 3.32+ 的 dart2js 产物（引擎运行时）使用了较新的 JS API，
 // 微信宿主运行时可能不支持，这里在 main.dart.js 执行前做特性检测式 polyfill。
+
+// 安全地给全局对象挂属性：微信开发者工具的全局对象是类 Window 沙箱，
+// window/self 等可能是只读 getter，直接赋值会抛错，失败时改用 defineProperty 遮蔽。
+function mpSetGlobal(key, value) {
+  try {
+    globalThis[key] = value;
+  } catch (e) {
+    try {
+      Object.defineProperty(globalThis, key, {
+        value: value,
+        writable: true,
+        configurable: true,
+      });
+    } catch (e2) {}
+  }
+}
+
 (function () {
   // dart2js async 降级代码使用 Array.prototype.at 返回异步结果，缺失会导致启动卡 loading
   if (typeof Array.prototype.at !== "function") {
@@ -41,20 +58,35 @@
       return Object.prototype.hasOwnProperty.call(obj, prop);
     };
   }
-  // flutter-3.38 fork: Flutter 3.32+ 的 dart2js 运行时通过 self || globalThis 访问全局对象
-  //（v.G.Error / v.G.document / v.G.window 等）。部分微信宿主中 self 存在但缺少 Error 等属性，
-  // 导致启动报错 "Cannot read property 'toString' of undefined"，这里将 self 规范为完整全局对象。
+  // flutter-3.38 fork: 微信沙箱中 Error/Promise 等全局量只能词法解析，不挂在全局对象上，
+  // 而 Flutter 3.32+ 的 dart2js 运行时通过 self || globalThis 的属性访问它们（v.G.Error 等），
+  // 这里显式注入到全局对象；同时把 self 规范为全局对象本身。
+  var mpGlobals = {
+    Error: typeof Error !== "undefined" ? Error : undefined,
+    TypeError: typeof TypeError !== "undefined" ? TypeError : undefined,
+    RangeError: typeof RangeError !== "undefined" ? RangeError : undefined,
+    SyntaxError: typeof SyntaxError !== "undefined" ? SyntaxError : undefined,
+    Promise: typeof Promise !== "undefined" ? Promise : undefined,
+    Symbol: typeof Symbol !== "undefined" ? Symbol : undefined,
+    JSON: typeof JSON !== "undefined" ? JSON : undefined,
+    Math: typeof Math !== "undefined" ? Math : undefined,
+    Date: typeof Date !== "undefined" ? Date : undefined,
+    RegExp: typeof RegExp !== "undefined" ? RegExp : undefined,
+    Map: typeof Map !== "undefined" ? Map : undefined,
+    Set: typeof Set !== "undefined" ? Set : undefined,
+    WeakMap: typeof WeakMap !== "undefined" ? WeakMap : undefined,
+    parseFloat: typeof parseFloat !== "undefined" ? parseFloat : undefined,
+    parseInt: typeof parseInt !== "undefined" ? parseInt : undefined,
+    console: typeof console !== "undefined" ? console : undefined,
+  };
+  Object.keys(mpGlobals).forEach(function (key) {
+    if (mpGlobals[key] != null && globalThis[key] == null) {
+      mpSetGlobal(key, mpGlobals[key]);
+    }
+  });
   try {
-    if (typeof self !== "undefined" && self !== globalThis) {
-      try {
-        if (!self.Error) self.Error = Error;
-        if (!self.Promise) self.Promise = Promise;
-        if (!self.Symbol) self.Symbol = Symbol;
-        if (!self.parseFloat) self.parseFloat = parseFloat;
-      } catch (e) {}
-      globalThis.self = globalThis;
-    } else if (typeof self === "undefined") {
-      globalThis.self = globalThis;
+    if (typeof self === "undefined" || self !== globalThis) {
+      mpSetGlobal("self", globalThis);
     }
   } catch (e) {
     console.warn("[mpflutter] normalize self failed", e);
@@ -302,8 +334,9 @@ globalThis.FlutterHostView = FlutterHostView;
     new(require("./flutter_bom/document").FlutterMiniProgramMockDocument)();
   _flutter.window.document = _flutter.document;
   // flutter-3.38 fork: dart2js 运行时通过全局对象访问 window/document，这里同步暴露
-  globalThis.window = _flutter.window;
-  globalThis.document = _flutter.document;
+  //（微信开发者工具中 window 是只读 getter，mpSetGlobal 会自动降级为 defineProperty 遮蔽）
+  mpSetGlobal("window", _flutter.window);
+  mpSetGlobal("document", _flutter.document);
   _flutter.self = {
     FlutterHostView: FlutterHostView,
     wx: wx,
